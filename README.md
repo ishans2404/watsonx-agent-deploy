@@ -1,6 +1,6 @@
-# WatsonX Agent Deploy
+# Watsonx Agent Deploy
 
-Simple CLI tool to deploy multiple AI agents to IBM WatsonX.ai
+Simple CLI tool to deploy multiple AI agents to IBM watsonx.ai
 
 ## Installation
 
@@ -77,4 +77,3 @@ watsonx-deploy --verbose
 
 ## License
 MIT
-
