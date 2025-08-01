@@ -2,7 +2,6 @@ import os
 import logging
 import subprocess
 import sys
-import platform
 from pathlib import Path
 import tomlkit
 from dotenv import load_dotenv
@@ -11,9 +10,6 @@ class WatsonXDeployer:
     def __init__(self, env_file='.env', config_dir='.', verbose=False):
         self.env_file = env_file
         self.config_dir = Path(config_dir).resolve()
-        self.is_windows = platform.system() == 'Windows'
-        self.python_cmd = 'python' if self.is_windows else 'python3'
-        self.venv_bin = 'Scripts' if self.is_windows else 'bin'
         self.setup_logging(verbose)
         self.load_environment()
     
@@ -41,27 +37,6 @@ class WatsonXDeployer:
         
         if not all([self.apikey, self.url, self.space_id]):
             raise ValueError("Missing required environment variables: WATSONX_APIKEY, WATSONX_URL, SPACE_ID")
-    
-    def get_venv_python(self):
-        """Get the correct path to Python executable in virtual environment"""
-        if self.is_windows:
-            return f".venv\\{self.venv_bin}\\python.exe"
-        else:
-            return f".venv/{self.venv_bin}/python"
-    
-    def get_venv_pip(self):
-        """Get the correct path to pip executable in virtual environment"""
-        if self.is_windows:
-            return f".venv\\{self.venv_bin}\\pip.exe"
-        else:
-            return f".venv/{self.venv_bin}/pip"
-    
-    def get_remove_dist_cmd(self):
-        """Get platform-specific command to remove dist directory"""
-        if self.is_windows:
-            return "if exist dist rmdir /s /q dist"
-        else:
-            return "rm -rf dist"
     
     def update_agent_config(self, config_path):
         """Update agent config.toml with deployment settings"""
@@ -106,16 +81,11 @@ class WatsonXDeployer:
         
         self.update_agent_config(config_path)
         
-        # cross-platform commands
-        venv_python = self.get_venv_python()
-        venv_pip = self.get_venv_pip()
-        remove_dist = self.get_remove_dist_cmd()
-        
         commands = [
-            f"{self.python_cmd} -m venv .venv",
-            f"{venv_pip} install --upgrade pip poetry",
-            f"poetry env use {venv_python}",
-            remove_dist,
+            "python3 -m venv .venv",
+            ".venv/bin/python -m pip install --upgrade pip poetry",
+            "poetry env use python3",
+            "rm -rf dist",
             f"watsonx-ai service new {agent_dir.name}"
         ]
         
@@ -124,11 +94,9 @@ class WatsonXDeployer:
     
     def deploy_all(self):
         """Deploy all agent directories"""
-        # Setup root environment with cross-platform commands
-        venv_pip = self.get_venv_pip()
-        
-        self.run_command(f"{self.python_cmd} -m venv .venv", self.config_dir)
-        self.run_command(f"{venv_pip} install python-dotenv ibm-watsonx-ai-cli tomlkit", self.config_dir)
+        # Setup root environment
+        self.run_command("python3 -m venv .venv", self.config_dir)
+        self.run_command(".venv/bin/pip install python-dotenv ibm-watsonx-ai-cli tomlkit", self.config_dir)
         
         agent_dirs = [d for d in self.config_dir.iterdir() 
                      if d.is_dir() and d.name.endswith('agent')]
@@ -144,5 +112,5 @@ class WatsonXDeployer:
                 self.deploy_agent(agent_dir)
                 self.logger.info(f"✅ Successfully deployed {agent_dir.name}")
             except Exception as e:
-                self.logger.error(f"Failed to deploy {agent_dir.name}: {e}")
+                self.logger.error(f"❌ Failed to deploy {agent_dir.name}: {e}")
                 raise
